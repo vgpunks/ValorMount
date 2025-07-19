@@ -1157,9 +1157,6 @@ category, layout = Settings.RegisterCanvasLayoutCategory(vmPrefs, vmPrefs.name, 
 category.ID = vmPrefs.name
 Settings.RegisterAddOnCategory(category);
 
-
-_G.InterfaceOptions_AddCategory(vmPrefs)
-
 -- Slash Commands and Key Bindings
 -------------------------------------------------
 _G["BINDING_NAME_VALORMOUNTBINDING1"] = "Mount/Dismount"
@@ -1167,8 +1164,5 @@ _G["BINDING_HEADER_VALORMOUNT"] = "ValorMount"
 _G.SLASH_VALORMOUNT1 = "/valormount"
 _G.SLASH_VALORMOUNT2 = "/vm"
 _G.SlashCmdList.VALORMOUNT = function()
-	if not vmPrefs.contentFrame.fromTop then
-Settings.OpenToCategory(category.ID)	--	_G.InterfaceOptionsFrame_OpenToCategory(vmPrefs)
-	end
-Settings.OpenToCategory(category.ID)	--_G.InterfaceOptionsFrame_OpenToCategory(vmPrefs)
+        Settings.OpenToCategory(category.ID)
 end
