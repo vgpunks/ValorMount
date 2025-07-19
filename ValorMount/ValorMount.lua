@@ -1144,11 +1144,9 @@ vmPrefs.contentFrame = CreateFrame("Frame", nil, vmPrefs.scrollChild)
 vmPrefs.contentFrame:SetAllPoints(vmPrefs.scrollChild)
 vmPrefs.contentFrame.vmFrames = {}
 vmPrefs.contentFrame.vmMounts = {}
-vmPrefs.refresh = function (self)
-	createMountOptions(self)
-	self:SetScript("OnShow", createMountOptions)
-	self.refresh = function () return end
-end
+
+-- Build the options UI when the panel is shown
+vmPrefs:SetScript("OnShow", createMountOptions)
 
 
 
