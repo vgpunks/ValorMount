@@ -407,10 +407,11 @@ local function vmCanFly()
 		end
 	end
 
-	-- Cannot Fly Here
-	if not IsFlyableArea() or IsAdvancedFlyableArea() or IsInInstance() then
-		return false
-	end
+        -- Cannot Fly Here
+        local inInstance, instanceType = IsInInstance()
+        if not IsFlyableArea() or IsAdvancedFlyableArea() or (inInstance and instanceType ~= "none") then
+                return false
+        end
 
 	-- To Infinity, and Beyond!
 	return true
