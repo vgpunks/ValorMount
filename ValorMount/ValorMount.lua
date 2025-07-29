@@ -314,11 +314,11 @@ do
 			end
 		end
 
-		-- Only loop softOverrides if necessary.
+                -- Only loop softOverrides if necessary.
                 if newValue or vmMain.zoneChanged then
                         for i = 1, #ValorMountGlobal.softOverrides do
                                 local zoneData = ValorMountGlobal.softOverrides[i]
-                                if zoneData[1] == vmMain.zoneInfo.instanceId and zoneData[2] == vmMain.zoneInfo.mapId and zoneData[3] == vmMain.zoneInfo.areaText then
+                                if zoneData[1] == vmMain.zoneInfo.instanceId and zoneData[2] == vmMain.zoneInfo.mapId then
                                         if newValue then
                                                 tremove(ValorMountGlobal.softOverrides, i)
                                                 vmMain.zoneInfo.zoneSoft = newValue
@@ -914,7 +914,7 @@ do
 		-- Flyable Area Override Help
 		f.titleHeaderFlyingInfo1 = f.titleHeaderFlyingInfo1 or mainFrame:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightSmall')
 		f.titleHeaderFlyingInfo1:SetPoint('TOPLEFT', 20, mainFrame.fromTop)
-		f.titleHeaderFlyingInfo1:SetText("Use this to override how mounts are chosen for this specific area.")
+                f.titleHeaderFlyingInfo1:SetText("Use this to override how mounts are chosen for this zone.")
 		mainFrame.fromTop = mainFrame.fromTop - (f.titleHeaderFlyingInfo1:GetHeight() + 4) -- Smaller padding
 
 		-- Flyable Area Override Debug Information
