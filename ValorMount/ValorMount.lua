@@ -315,17 +315,19 @@ do
 		end
 
 		-- Only loop softOverrides if necessary.
-		if newValue or vmMain.zoneChanged then
-			for i = 1, #ValorMountGlobal.softOverrides do
-				local zoneData = ValorMountGlobal.softOverrides[i]
-				if zoneData[1] == vmMain.zoneInfo.instanceId and zoneData[2] == vmMain.zoneInfo.mapId and zoneData[3] == vmMain.zoneInfo.areaText then
-					if newValue then
-						tremove(ValorMountGlobal.softOverrides, i)
-					end
-					vmMain.zoneInfo.zoneSoft = newValue or 1
-				end
-			end
-		end
+                if newValue or vmMain.zoneChanged then
+                        for i = 1, #ValorMountGlobal.softOverrides do
+                                local zoneData = ValorMountGlobal.softOverrides[i]
+                                if zoneData[1] == vmMain.zoneInfo.instanceId and zoneData[2] == vmMain.zoneInfo.mapId and zoneData[3] == vmMain.zoneInfo.areaText then
+                                        if newValue then
+                                                tremove(ValorMountGlobal.softOverrides, i)
+                                                vmMain.zoneInfo.zoneSoft = newValue
+                                        else
+                                                vmMain.zoneInfo.zoneSoft = zoneData[4] or 1
+                                        end
+                                end
+                        end
+                end
 
 		-- Done
 		vmMain.zoneChanged = false
