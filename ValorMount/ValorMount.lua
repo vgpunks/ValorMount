@@ -32,6 +32,8 @@ local GetMountInfoExtraByID, GetNumDisplayedMounts, GetDisplayedMountInfo, GetBe
 local GetMapInfo, GetMountIDs, GetMountInfoByID, GetNumGroupMembers, IsFlying
 	=  _G.C_Map.GetMapInfo, _G.C_MountJournal.GetMountIDs, _G.C_MountJournal.GetMountInfoByID, _G.GetNumGroupMembers, _G.IsFlying
 local IsQuestFlaggedCompleted = _G.C_QuestLog.IsQuestFlaggedCompleted
+local GetPlayerAuraBySpellID = _G.C_UnitAuras and _G.C_UnitAuras.GetPlayerAuraBySpellID
+local GetAuraDataByIndex = _G.C_UnitAuras and _G.C_UnitAuras.GetAuraDataByIndex
 local playerRace, playerClass, playerFaction, playerLevel
 	= select(2, _G.UnitRace("player")), select(2, _G.UnitClass("player")), _G.UnitFactionGroup("player"), _G.UnitLevel("player")
 local vmPrefs = CreateFrame("Frame", nil, _G.UIParent)
@@ -227,7 +229,7 @@ local function vmLocalFavs()
 	-- Complete
 	journalRead = false
 	journalDone = true
-	MountJournal_FullUpdate(MountJournal)
+	if MountJournal_FullUpdate then MountJournal_FullUpdate(MountJournal) end
 	vmMain:UnregisterEvent("MOUNT_JOURNAL_SEARCH_UPDATED")
 	if not setCollected then SetCollectedFilterSetting(filterCollected, false) end
 	if not setNotCollected then SetCollectedFilterSetting(filterNotCollected, false) end
@@ -409,7 +411,7 @@ local function vmCanFly()
 
         -- Cannot Fly Here
         local inInstance, instanceType = IsInInstance()
-        if not IsFlyableArea() or IsAdvancedFlyableArea() or (inInstance and instanceType ~= "none") then
+        if not IsFlyableArea() or (IsAdvancedFlyableArea and IsAdvancedFlyableArea()) or (inInstance and instanceType ~= "none") then
                 return false
         end
 
@@ -649,16 +651,24 @@ do
 
 		-- ShamanGhostWolf
 		if playerClass == "SHAMAN" and ValorMountLocal.ShamanGhostWolf and IsPlayerSpell(spellMap.GhostWolf.id) then
-			-- Cancel Ghost Wolf
-			for i = 1, 40 do
-				local _, _, _, _, _, _, _, _, _, auraId = UnitAura("player", i, "HELPFUL|PLAYER")
-				if not auraId then break
-				elseif auraId == spellMap.GhostWolf.id then
-					canMount = false
-					inTravelForm = true
-					macroExit = "/cancelform [form]\n"
-					break
+			-- Cancel Ghost Wolf (UnitAura removed in Midnight; use C_UnitAuras)
+			local inGhostWolf = false
+			if GetPlayerAuraBySpellID then
+				inGhostWolf = GetPlayerAuraBySpellID(spellMap.GhostWolf.id) ~= nil
+			elseif GetAuraDataByIndex then
+				for i = 1, 40 do
+					local aura = GetAuraDataByIndex("player", i, "HELPFUL|PLAYER")
+					if not aura then break
+					elseif aura.spellId == spellMap.GhostWolf.id then
+						inGhostWolf = true
+						break
+					end
 				end
+			end
+			if inGhostWolf then
+				canMount = false
+				inTravelForm = true
+				macroExit = "/cancelform [form]\n"
 			end
 			-- Cast Ghost Wolf
 			if not isSubmerged and not isMounted and not inTravelForm and (not canMount or inCombat or isMoving) then
@@ -712,10 +722,6 @@ local category, layout
 --------------------------------------------------------------------------------------------------
 local createMountOptions
 do
-	local UIDropDownMenu_AddButton, UIDropDownMenu_CreateInfo, UIDropDownMenu_Initialize, UIDropDownMenu_SetButtonWidth
-		= _G.UIDropDownMenu_AddButton, _G.UIDropDownMenu_CreateInfo, _G.UIDropDownMenu_Initialize, _G.UIDropDownMenu_SetButtonWidth
-	local UIDropDownMenu_SetSelectedValue, UIDropDownMenu_SetText, UIDropDownMenu_SetWidth
-		= _G.UIDropDownMenu_SetSelectedValue, _G.UIDropDownMenu_SetText, _G.UIDropDownMenu_SetWidth
 	local soundOn, soundOff
 		= _G.SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON, _G.SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF
 	local dropChoices = {
@@ -801,25 +807,33 @@ do
 	local function newCheckbox(parent, scopeId, catId, varId, dispName, dispDesc)
 		if not scopeId or not varId then return end
 		local chkId = "ValorMountCheckbox"..scopeId..catId..varId
-		local chkFrame = CreateFrame("CheckButton", chkId, parent, "InterfaceOptionsCheckButtonTemplate")
+		-- InterfaceOptionsCheckButtonTemplate removed in Midnight; build manually
+		local chkFrame = CreateFrame("CheckButton", chkId, parent)
+		chkFrame:SetSize(26, 26)
+		chkFrame:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
+		chkFrame:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
+		chkFrame:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
+		chkFrame:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
+		chkFrame:SetDisabledCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check-Disabled")
 		chkFrame.varId, chkFrame.catId, chkFrame.scopeId = varId, catId, scopeId
 		chkFrame.GetValue = checkboxGetValue
 		chkFrame.SetValue = checkboxSetValue
 		chkFrame:SetScript('OnShow', checkboxOnShow)
 		chkFrame:SetScript("OnClick", checkboxOnClick)
 		chkFrame:SetChecked(chkFrame:GetValue())
-		chkFrame.label = _G[chkFrame:GetName() .. "Text"]
+		chkFrame.label = chkFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+		chkFrame.label:SetPoint("LEFT", chkFrame, "RIGHT", 2, 0)
 		chkFrame.label:SetText(dispName or "Checkbox")
-		chkFrame.tooltipText = dispDesc and dispName or ""
-		chkFrame.tooltipRequirement = dispDesc or ""
+		if dispName and dispDesc then
+			chkFrame:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				GameTooltip:SetText(dispName, 1, 1, 1)
+				GameTooltip:AddLine(dispDesc, nil, nil, nil, true)
+				GameTooltip:Show()
+			end)
+			chkFrame:SetScript("OnLeave", function() GameTooltip:Hide() end)
+		end
 		return chkFrame
-	end
-
-	-- Dropdown Functions
-	-------------------------------------------------
-	local function dropDownSelect(dropDown, dropType, dropVal)
-		UIDropDownMenu_SetSelectedValue(dropDown, dropVal)
-		UIDropDownMenu_SetText(dropDown, dropChoices[dropType][dropVal])
 	end
 
 	-- Initial Frame Creation
@@ -930,27 +944,26 @@ do
 		end
 		mainFrame.fromTop = mainFrame.fromTop - (f.titleHeaderFlyingInfo2:GetHeight() + 8)
 
-		-- Flyable Area Override Dropdown
-		f.dropDownFlying = f.dropDownFlying or CreateFrame("Frame", nil, mainFrame, "UIDropDownMenuTemplate")
-		f.dropDownFlying.updateDropDown = function ()
-			local selectThis = vmMain.zoneInfo.zoneSoft or 1
-			UIDropDownMenu_SetSelectedValue(f.dropDownFlying, selectThis)
-			UIDropDownMenu_SetText(f.dropDownFlying, dropChoices.zone[selectThis])
-		end
-		f.dropDownFlying.initialize = function()
-			for i = 1, #dropChoices.zone do
-				local row = UIDropDownMenu_CreateInfo()
-				row.text = dropChoices.zone[i]
-				row.value = i
-				row.func = function (self) vmSetZoneInfo(self.value) end
-				UIDropDownMenu_AddButton(row)
+		-- Flyable Area Override Dropdown (UIDropDownMenu removed in Midnight; use DropdownButton)
+		if not f.dropDownFlying then
+			f.dropDownFlying = CreateFrame("DropdownButton", nil, mainFrame)
+			f.dropDownFlying:SetWidth(140)
+			f.dropDownFlying:SetupMenu(function(owner, rootDescription)
+				for i = 1, #dropChoices.zone do
+					local idx = i
+					rootDescription:CreateButton(dropChoices.zone[i], function()
+						f.dropDownFlying:SetText(dropChoices.zone[idx])
+						vmSetZoneInfo(idx)
+					end)
+				end
+			end)
+			f.dropDownFlying.updateDropDown = function()
+				local selectThis = vmMain.zoneInfo.zoneSoft or 1
+				f.dropDownFlying:SetText(dropChoices.zone[selectThis])
 			end
 		end
-		UIDropDownMenu_SetWidth(f.dropDownFlying, 100)
-		UIDropDownMenu_SetButtonWidth(f.dropDownFlying, 100)
-		UIDropDownMenu_Initialize(f.dropDownFlying, f.dropDownFlying.initialize)
 		f.dropDownFlying:SetPoint("TOPLEFT", 12, mainFrame.fromTop)
-		mainFrame.fromTop = mainFrame.fromTop - f.dropDownFlying:GetHeight()
+		mainFrame.fromTop = mainFrame.fromTop - 26
 
 
 		-- Flying Ground Mounts
@@ -1008,23 +1021,21 @@ do
 				local mountId, mountName, mountType = unpack(mountDb[i])
 				if mountType == 247 or mountType == 248 or mountType == 402 then
 					if not mF[mountId] then
-						mF[mountId] = CreateFrame("Frame", nil, mainFrame, "UIDropDownMenuTemplate")
-						mF[mountId].initialize = function()
+						-- DropdownButton replaces removed UIDropDownMenuTemplate
+						local mid = mountId
+						mF[mountId] = CreateFrame("DropdownButton", nil, mainFrame)
+						mF[mountId]:SetWidth(140)
+						mF[mountId]:SetupMenu(function(owner, rootDescription)
 							for n = 1, #dropChoices.mount do
-								local row = UIDropDownMenu_CreateInfo()
-								row.text = dropChoices.mount[n]
-								row.value = n
-								row.func = function(self)
-									ValorMountGlobal.groundFly[mountId] = self.value > 1 and self.value or nil
-									dropDownSelect(mF[mountId], "mount", self.value)
-								end
-								UIDropDownMenu_AddButton(row)
+								local n = n
+								rootDescription:CreateButton(dropChoices.mount[n], function()
+									ValorMountGlobal.groundFly[mid] = n > 1 and n or nil
+									mF[mid]:SetText(dropChoices.mount[n])
+								end)
 							end
-						end
-						UIDropDownMenu_SetWidth(mF[mountId], 100)
-						UIDropDownMenu_SetButtonWidth(mF[mountId], 100)
-						UIDropDownMenu_Initialize(mF[mountId], mF[mountId].initialize)
-						dropDownSelect(mF[mountId], "mount", ValorMountGlobal.groundFly[mountId] or 1)
+						end)
+						local initVal = ValorMountGlobal.groundFly[mountId] or 1
+						mF[mountId]:SetText(dropChoices.mount[initVal])
 						mF[mountId.."Label"] = mainFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
 						mF[mountId.."Label"]:SetText(mountName)
 					end

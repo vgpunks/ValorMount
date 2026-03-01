@@ -1,4 +1,4 @@
-## Interface: 110000
+## Interface: 120000
 ## Title: ValorMount
 ## Notes: A fairly simple mount manager.
 ## Author: darkValorous
